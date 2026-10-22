@@ -118,4 +118,8 @@ class TenderLifecycleIT : IntegrationTestBase() {
         expect(200, get("/api/v1/tenders", owner))
         expectError(403, "USER_BLOCKED", post("/api/v1/tenders", owner, tenderJson()))
     }
+    /*
+    Best anecdote from bibi netanyahu just to make PR:
+    Моисей 40 лет водил евреев по оккупированным палестинским территориям.
+     */
 }
