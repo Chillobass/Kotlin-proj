@@ -1,0 +1,88 @@
+### Demo scenario for IntelliJ HTTP Client / VS Code REST Client.
+### Start with TENDER_MIN_DEADLINE_OFFSET=2m and TENDER_MIN_OPEN_DURATION=1m in .env,
+### and set @deadline below to ~3 minutes from now (UTC).
+
+@host = http://localhost:8080/api/v1
+# Edit: ~3 minutes from now in UTC (or any date 24h..90d ahead with default settings)
+@deadline = 2026-11-01T12:00:00Z
+@admin = admin@tenderhub.local change-me-admin1
+@owner = owner@example.com password1
+@alice = alice@example.com password1
+@bob = bob@example.com password1
+
+### Register customer
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{ "email": "owner@example.com", "password": "password1", "displayName": "ООО Заказчик" }
+
+### Register two suppliers
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{ "email": "alice@example.com", "password": "password1", "displayName": "Alice Supply" }
+
+###
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{ "email": "bob@example.com", "password": "password1", "displayName": "Bob Trade" }
+
+### Customer submits a tender (goes to moderation)
+# @name createTender
+POST {{host}}/tenders
+Authorization: Basic {{owner}}
+Content-Type: application/json
+
+{
+  "title": "Поставка 500 ноутбуков",
+  "description": "Ноутбуки 14\", 16 ГБ RAM, доставка в Санкт-Петербург",
+  "category": "SUPPLIES",
+  "maxPrice": 1000000,
+  "deadline": "{{deadline}}",
+  "weights": { "price": 60, "delivery": 30, "warranty": 10 }
+}
+
+> {% client.global.set("tenderId", response.body.id); %}
+
+### Admin: review queue
+GET {{host}}/admin/tenders/review-queue
+Authorization: Basic {{admin}}
+
+### Admin: approve
+POST {{host}}/admin/tenders/{{tenderId}}/approve
+Authorization: Basic {{admin}}
+
+### Open tenders catalogue
+GET {{host}}/tenders?category=SUPPLIES
+Authorization: Basic {{alice}}
+
+### Alice bids
+POST {{host}}/tenders/{{tenderId}}/bids
+Authorization: Basic {{alice}}
+Content-Type: application/json
+
+{ "price": 900000, "deliveryDays": 30, "warrantyMonths": 12, "comment": "Есть на складе" }
+
+### Bob bids
+POST {{host}}/tenders/{{tenderId}}/bids
+Authorization: Basic {{bob}}
+Content-Type: application/json
+
+{ "price": 1000000, "deliveryDays": 20, "warrantyMonths": 6 }
+
+### Results are hidden while the tender is open (409 RESULTS_NOT_AVAILABLE)
+GET {{host}}/tenders/{{tenderId}}/results
+Authorization: Basic {{owner}}
+
+### After the deadline: close now instead of waiting for the scheduler
+POST {{host}}/admin/tenders/close-expired
+Authorization: Basic {{admin}}
+
+### Rating with the winner
+GET {{host}}/tenders/{{tenderId}}/results
+Authorization: Basic {{bob}}
+
+### Notifications
+GET {{host}}/notifications
+Authorization: Basic {{alice}}

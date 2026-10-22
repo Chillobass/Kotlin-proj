@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-tenderhub}
+      POSTGRES_USER: ${DB_USER:-tenderhub}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is not set, copy .env.example to .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/${DB_NAME:-tenderhub}
+      DB_USER: ${DB_USER:-tenderhub}
+      DB_PASSWORD: ${DB_PASSWORD}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?ADMIN_EMAIL is not set, copy .env.example to .env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is not set, copy .env.example to .env}
+      TENDER_MIN_DEADLINE_OFFSET: ${TENDER_MIN_DEADLINE_OFFSET:-24h}
+      TENDER_MIN_OPEN_DURATION: ${TENDER_MIN_OPEN_DURATION:-24h}
+      CLOSING_POLL_INTERVAL_MS: ${CLOSING_POLL_INTERVAL_MS:-10000}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
